@@ -1,0 +1,231 @@
+Data types
+---------CREATE TABLE example_table (
+    -- Numeric Types
+    id SERIAL PRIMARY KEY,                         -- Auto-incrementing primary key
+    small_num SMALLINT CHECK (small_num > 0),      -- Small integer with a CHECK constraint
+    big_num BIGINT NOT NULL,                       -- Big integer with NOT NULL constraint
+    decimal_num DECIMAL(10, 2) DEFAULT 0.0,        -- Decimal with default value
+    floating_num DOUBLE PRECISION,                 -- Floating-point number
+
+    -- Character Types
+    fixed_char CHAR(10) DEFAULT 'default',         -- Fixed-length character string
+    variable_char VARCHAR(50) UNIQUE,              -- Variable-length character string with UNIQUE constraint
+    text_field TEXT CHECK (char_length(text_field) > 5), -- Text type with a length CHECK constraint
+
+    -- Binary Data Type
+    binary_data BYTEA,                             -- Binary data
+
+    -- Date/Time Types
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, -- Timestamp with time zone and default value
+    date_field DATE,                               -- Date type
+    time_field TIME,                               -- Time of day
+
+    -- Boolean Type
+    is_active BOOLEAN DEFAULT TRUE,                -- Boolean with a default value
+
+    -- Enumerated Type
+    status STATUS_TYPE DEFAULT 'pending',          -- ENUM type with a default value (Assume STATUS_TYPE is predefined)
+
+    -- Geometric Type
+    location POINT,                                -- Geometric point
+
+    -- Network Address Types
+    ip_address INET,                               -- IP address type
+    mac_address MACADDR,                           -- MAC address type
+
+    -- JSON Type
+    json_data JSONB,                               -- JSONB data type
+
+    -- Array Types
+    tags TEXT[],                                   -- Array of text
+
+    -- Range Types
+    int_range INT4RANGE,                           -- Range of integers
+
+    -- UUID Type
+    unique_id UUID DEFAULT gen_random_uuid(),      -- UUID with a default value
+
+    -- XML Type
+    xml_data XML,                                  -- XML data type
+
+    -- Composite Type
+    composite_data COMPOSITE_TYPE,                 -- Composite type (Assume COMPOSITE_TYPE is predefined)
+
+    -- Custom Constraint
+    CHECK (big_num > small_num)                    -- Custom CHECK constraint
+);
+
+-- Example ENUM type for the status column
+CREATE TYPE STATUS_TYPE AS ENUM ('pending', 'approved', 'rejected');
+
+-- Example Composite Type
+CREATE TYPE COMPOSITE_TYPE AS (
+    field1 INTEGER,
+    field2 TEXT
+);
+
+Create table emp(empid , ename , jobdesc , salary)
+SELECT indexname AS index_name,  indexdef AS index_definition 
+FROM pg_indexes WHERE  schemaname = 'public';  -- or your schema name
+
+PROCEDURE
+=========
+    CREATE OR REPLACE PROCEDURE add_employee(
+    first_name_param VARCHAR,
+    last_name_param VARCHAR,
+    department_param VARCHAR,
+    salary_param NUMERIC
+)
+LANGUAGE plpgsql
+AS $$  -- To avoid special character 
+BEGIN
+    -- Insert a new record into the employees table
+    INSERT INTO employees (first_name, last_name, department, salary)
+    VALUES (first_name_param, last_name_param, department_param, salary_param);
+
+    -- Return a notice indicating the record was inserted
+    RAISE NOTICE 'Employee % % has been added to the % department with a salary of %', 
+                 first_name_param, last_name_param, department_param, salary_param;
+END;
+$$;
+
+
+Exceptions
+==========
+    CREATE OR REPLACE PROCEDURE transfer_funds(
+    sender_account_id INT,
+    receiver_account_id INT,
+    amount NUMERIC
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    -- Start transaction block
+    BEGIN
+        -- Subtract amount from sender's account
+        UPDATE accounts
+        SET balance = balance - amount
+        WHERE account_id = sender_account_id;
+
+        -- Check if the sender's balance is sufficient
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Sender account % does not exist or insufficient balance', sender_account_id;
+        END IF;
+
+        -- Add amount to receiver's account
+        UPDATE accounts
+        SET balance = balance + amount
+        WHERE account_id = receiver_account_id;
+
+        -- Check if the receiver's account exists
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Receiver account % does not exist', receiver_account_id;
+        END IF;
+
+        -- Commit transaction
+        COMMIT;
+
+    EXCEPTION
+        -- Handle insufficient balance
+        WHEN SQLSTATE 'P0001' THEN
+            RAISE NOTICE 'Transaction failed: %', SQLERRM;
+            ROLLBACK;
+
+        -- Handle any other errors
+        WHEN OTHERS THEN
+            RAISE NOTICE 'An unexpected error occurred: %', SQLERRM;
+            ROLLBACK;
+    END;
+END;
+$$;
+
+EXCEPTION
+    WHEN unique_violation THEN
+        RAISE NOTICE 'Duplicate entry detected';
+        -- Handle unique violation
+    WHEN foreign_key_violation THEN
+        RAISE NOTICE 'Foreign key constraint violation';
+        -- Handle foreign key violation
+    WHEN OTHERS THEN
+        RAISE NOTICE 'An unexpected error occurred: %', SQLERRM;
+        ROLLBACK;
+
+Common SQLSTATE Error Codes:
+23505: Unique violation.
+23503: Foreign key violation.
+23502: Not-null violation.
+22P02: Invalid text representation (e.g., parsing error).
+P0001: Default code for user-defined exceptions.
+=================================================================
+CREATE OR REPLACE PROCEDURE withdraw_funds(
+    p_account_id INT,
+    p_amount NUMERIC
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    min_balance CONSTANT NUMERIC := 100.00;  -- Minimum required balance
+    current_balance NUMERIC;
+BEGIN
+    -- Fetch the current balance
+    SELECT balance INTO current_balance
+    FROM accounts
+    WHERE account_id = p_account_id;
+
+    -- Check if the account exists
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Account ID % does not exist', p_account_id
+            USING ERRCODE = 'P1001';  -- Custom SQLSTATE code
+    END IF;
+
+    -- Check if the withdrawal would cause balance to drop below minimum
+    IF current_balance - p_amount < min_balance THEN
+        RAISE EXCEPTION 'Withdrawal denied: Balance cannot drop below %', min_balance
+            USING ERRCODE = 'P1002';  -- Custom SQLSTATE code
+    END IF;
+
+    -- Perform the withdrawal
+    UPDATE accounts
+    SET balance = balance - p_amount
+    WHERE account_id = p_account_id;
+
+    RAISE NOTICE 'Withdrawal of % from account % successful. New balance is %', 
+                 p_amount, p_account_id, current_balance - p_amount;
+END;
+$$;
+
+RAISE EXCEPTION:
+
+The RAISE EXCEPTION statement is used to raise an error. 
+    The USING ERRCODE = 'P1001' assigns a custom SQLSTATE code to the exception. This helps to identify the specific type of error that occurred.
+Handling the Withdrawal:
+
+If no exceptions are raised, the balance is updated, and a success message is displayed using RAISE NOTICE.    
+
+Execute procedure
+================
+    CALL withdraw_funds(1, 500.00);
+
+DO $$
+BEGIN
+    BEGIN
+        CALL withdraw_funds(1, 500.00);
+    EXCEPTION
+        WHEN SQLSTATE 'P1001' THEN
+            RAISE NOTICE 'Custom error: Account does not exist.';
+        WHEN SQLSTATE 'P1002' THEN
+            RAISE NOTICE 'Custom error: Minimum balance violation.';
+        WHEN OTHERS THEN
+            RAISE NOTICE 'An unexpected error occurred.';
+    END;
+END;
+$$;
+
+Custom SQLSTATE Codes: Use custom SQLSTATE codes starting with 'P' to define user-defined exceptions.
+RAISE EXCEPTION:       Used to raise the exception, with a custom message and an optional SQLSTATE code.
+EXCEPTION Block:       You can catch and handle these exceptions using an EXCEPTION block in your PL/pgSQL code.
+
+
+Materialized view
+
+    Refresh materialized view <viewname>
