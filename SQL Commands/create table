@@ -448,4 +448,26 @@ CURRENT_TIME: Returns the current time.
 sql
 Copy code
 SELECT CURRENT_TIME AS now_time;
-===================================================
+=========================================================================
+Pivot query
+-----------
+create table sales_data (sale_month date,qty number(5));
+
+select * from sales_data;
+
+insert into sales_data 
+select * from (
+select add_months(trunc(sysdate-730,'yy'),level-1 ) sale_mon,300+(level*2)  sal_qty
+from dual connect by level < 13);
+
+
+SELECT *
+FROM (
+    SELECT TO_CHAR(sale_month, 'yyyy') year, qty, TO_CHAR(sale_month, 'Mon') AS sale_month_formatted
+    FROM sales_data
+)
+PIVOT (
+    SUM(qty)
+    FOR sale_month_formatted IN ('Jan' AS JAN, 'Feb' AS FEB,'Mar' AS MAR)
+);
+==========================================================================
