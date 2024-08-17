@@ -193,6 +193,26 @@ BEGIN
                  p_amount, p_account_id, current_balance - p_amount;
 END;
 $$;
+==================================================================
+CREATE OR REPLACE FUNCTION total_salary(dept_name VARCHAR)
+RETURNS NUMERIC
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    total NUMERIC := 0;
+BEGIN
+    -- Calculate the total salary for the given department
+    SELECT SUM(salary) INTO total
+    FROM employees
+    WHERE department = dept_name;
+
+    -- Return the total salary
+    RETURN total;
+END;
+$$;
+
+SELECT total_salary('Engineering');
+-------------------------------------------------------------------------
 
 RAISE EXCEPTION:
 
@@ -228,4 +248,204 @@ EXCEPTION Block:       You can catch and handle these exceptions using an EXCEPT
 
 Materialized view
 
-    Refresh materialized view <viewname>
+Refresh materialized view <viewname>
+--------------------------------------------
+
+Key Concepts for Collections in PostgreSQL
+Arrays
+JSON and JSONB
+HSTORE
+Composite Types
+Row Types
+Table Inheritance
+CTEs and Subqueries
+1. Arrays
+Arrays are a collection of elements of the same data type. PostgreSQL allows you to store arrays in columns, making it easy to work with multiple values in a single field.
+
+CREATE TABLE students (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100),
+    grades INTEGER[]
+);
+
+-- Insert a student with an array of grades
+INSERT INTO students (name, grades) VALUES ('John Doe', '{85, 90, 78}');
+
+-- Query to access array elements
+SELECT name, grades[1] AS first_grade FROM students;
+==========================================
+CREATE OR REPLACE PROCEDURE process_employees(dept_name VARCHAR)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    emp_id INT;
+    emp_name VARCHAR;
+    emp_cursor CURSOR FOR
+    SELECT id, name FROM employees WHERE department = dept_name;
+BEGIN
+    OPEN emp_cursor;
+
+    LOOP
+        FETCH emp_cursor INTO emp_id, emp_name;
+        EXIT WHEN NOT FOUND;  -- Exit the loop when no more rows are found
+        
+        -- Process each row (for example, output the values)
+        RAISE NOTICE 'Employee ID: %, Employee Name: %', emp_id, emp_name;
+    END LOOP;
+
+    CLOSE emp_cursor;
+END;
+$$;
+================================================================
+Temporary Table:
+CREATE OR REPLACE FUNCTION bulk_collect_students()
+RETURNS TABLE(id INT, name TEXT) AS $$
+BEGIN
+    CREATE TEMPORARY TABLE temp_students AS
+    SELECT id, name FROM students WHERE grade > 80;
+    
+    RETURN QUERY SELECT * FROM temp_students;
+    
+    DROP TABLE temp_students;
+END;
+$$ LANGUAGE plpgsql;
+======================================
+DATE function
+-------------
+Date and Time Extraction
+Date and Time Formatting
+Date Arithmetic
+Date and Time Conversion
+Time Zone Handling
+1. Date and Time Extraction
+You can extract specific components from date and time values.
+
+Examples:
+Extract Year, Month, Day:
+
+sql
+Copy code
+SELECT EXTRACT(YEAR FROM CURRENT_DATE) AS year,
+       EXTRACT(MONTH FROM CURRENT_DATE) AS month,
+       EXTRACT(DAY FROM CURRENT_DATE) AS day;
+Extract Hour, Minute, Second:
+
+sql
+Copy code
+SELECT EXTRACT(HOUR FROM CURRENT_TIME) AS hour,
+       EXTRACT(MINUTE FROM CURRENT_TIME) AS minute,
+       EXTRACT(SECOND FROM CURRENT_TIME) AS second;
+2. Date and Time Formatting
+You can format date and time values using TO_CHAR.
+
+Examples:
+Format Date as 'YYYY-MM-DD':
+
+sql
+Copy code
+SELECT TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD') AS formatted_date;
+Format Time as 'HH24:MI
+':
+
+sql
+Copy code
+SELECT TO_CHAR(CURRENT_TIME, 'HH24:MI:SS') AS formatted_time;
+Format Date and Time:
+
+sql
+Copy code
+SELECT TO_CHAR(CURRENT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS') AS formatted_datetime;
+3. Date Arithmetic
+Perform arithmetic operations with dates and intervals.
+
+Examples:
+Add Days to a Date:
+
+sql
+Copy code
+SELECT CURRENT_DATE + INTERVAL '10 days' AS future_date;
+Subtract Dates:
+
+sql
+Copy code
+SELECT CURRENT_DATE - INTERVAL '30 days' AS past_date;
+Calculate Difference in Days:
+
+sql
+Copy code
+SELECT CURRENT_DATE - DATE '2024-01-01' AS days_difference;
+Add Months to a Date:
+
+sql
+Copy code
+SELECT CURRENT_DATE + INTERVAL '3 months' AS future_date;
+4. Date and Time Conversion
+Convert between different date and time formats or types.
+
+Examples:
+Convert Text to Date:
+
+sql
+Copy code
+SELECT TO_DATE('2024-08-17', 'YYYY-MM-DD') AS date_value;
+Convert Date to Text:
+
+sql
+Copy code
+SELECT TO_CHAR(DATE '2024-08-17', 'Day, Month DD, YYYY') AS formatted_date;
+Convert Text to Timestamp:
+
+sql
+Copy code
+SELECT TO_TIMESTAMP('2024-08-17 14:30:00', 'YYYY-MM-DD HH24:MI:SS') AS timestamp_value;
+Convert Timestamp to Text:
+
+sql
+Copy code
+SELECT TO_CHAR(TIMESTAMP '2024-08-17 14:30:00', 'YYYY-MM-DD HH24:MI:SS') AS formatted_timestamp;
+5. Time Zone Handling
+Handle and convert between different time zones.
+
+Examples:
+Get Current Time in UTC:
+
+sql
+Copy code
+SELECT CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AS utc_time;
+Convert Time to Another Time Zone:
+
+sql
+Copy code
+SELECT CURRENT_TIMESTAMP AT TIME ZONE 'America/New_York' AS ny_time;
+Convert Between Time Zones:
+
+sql
+Copy code
+SELECT TIMESTAMP '2024-08-17 14:30:00' AT TIME ZONE 'UTC' AT TIME ZONE 'America/Los_Angeles' AS la_time;
+Additional Useful Functions
+AGE(): Calculates the age between two dates or from a given date to the current date.
+
+sql
+Copy code
+SELECT AGE(DATE '2000-01-01') AS age;
+DATE_TRUNC(): Truncates a timestamp to a specified level of precision (e.g., year, month, day).
+
+sql
+Copy code
+SELECT DATE_TRUNC('month', CURRENT_DATE) AS start_of_month;
+NOW(): Returns the current date and time.
+
+sql
+Copy code
+SELECT NOW() AS current_datetime;
+CURRENT_DATE: Returns the current date.
+
+sql
+Copy code
+SELECT CURRENT_DATE AS today;
+CURRENT_TIME: Returns the current time.
+
+sql
+Copy code
+SELECT CURRENT_TIME AS now_time;
+===================================================
